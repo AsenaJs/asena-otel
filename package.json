@@ -1,0 +1,65 @@
+{
+  "name": "@asenajs/asena-otel",
+  "version": "1.0.0",
+  "author": "LibirSoft",
+  "description": "OpenTelemetry integration for AsenaJS - auto-tracing, HTTP metrics, distributed tracing",
+  "main": "dist/index.js",
+  "module": "index.ts",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AsenaJs/asena-otel.git"
+  },
+  "scripts": {
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage",
+    "build": "bun run clean && tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "bun run build",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "bun run build && changeset publish"
+  },
+  "devDependencies": {
+    "@asenajs/asena": "^0.7.1",
+    "@changesets/cli": "^2.30.0",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/resources": "^2.6.1",
+    "@opentelemetry/sdk-metrics": "^2.6.1",
+    "@opentelemetry/sdk-trace-base": "^2.6.1",
+    "@opentelemetry/semantic-conventions": "^1.40.0",
+    "@types/bun": "latest",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "eslint": "^8.57.1",
+    "eslint-config-alloy": "^5.1.2",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-alloy": "^1.2.1",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-n": "^16.6.2",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-promise": "^6.6.0",
+    "prettier": "^3.8.2",
+    "reflect-metadata": "^0.2.2"
+  },
+  "peerDependencies": {
+    "@asenajs/asena": "^0.7.0",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/resources": "^2.6.0",
+    "@opentelemetry/sdk-metrics": "^2.6.0",
+    "@opentelemetry/sdk-trace-base": "^2.6.0",
+    "@opentelemetry/semantic-conventions": "^1.40.0",
+    "@opentelemetry/context-async-hooks": "^2.6.0",
+    "reflect-metadata": "^0.2.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@opentelemetry/context-async-hooks": "^2.6.1"
+  }
+}
