@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
+import { metrics, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
 import { defineMetadata } from 'reflect-metadata/no-conflict';
 import { AlwaysOffSampler, AlwaysOnSampler, InMemorySpanExporter } from '@opentelemetry/sdk-trace-base';
+import {
+  AggregationTemporality,
+  InMemoryMetricExporter,
+  PeriodicExportingMetricReader,
+} from '@opentelemetry/sdk-metrics';
 import { OtelTracingPostProcessor } from '../lib/postprocessor/OtelTracingPostProcessor';
 import { Otel } from '../lib/decorators/Otel';
 import { ratioBasedSampler } from '../lib/samplers';
@@ -736,6 +741,88 @@ describe('OtelTracingPostProcessor', () => {
 
       await p.shutdown();
       trace.disable();
+    });
+  });
+
+  describe('metric View whitelist (defense in depth)', () => {
+    it('should drop non-whitelisted attributes from http.server.* metrics', async () => {
+      const metricExporter = new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE);
+      const reader = new PeriodicExportingMetricReader({
+        exporter: metricExporter,
+        exportIntervalMillis: 100,
+      });
+      const traceExporter = new InMemorySpanExporter();
+
+      @Otel({ serviceName: 'view-test', traceExporter, metricReader: reader })
+      class ViewTestOtel extends OtelTracingPostProcessor {}
+
+      const p = new ViewTestOtel();
+
+      p.onInit();
+
+      const counter = metrics.getMeter('test').createCounter('http.server.request.count');
+
+      counter.add(1, {
+        'http.request.method': 'GET',
+        'http.response.status_code': 200,
+        'http.route': '/api/users/:id',
+        'url.path': '/api/users/123',
+        'user.id': 'user-42',
+      });
+
+      const { resourceMetrics } = await reader.collect();
+      const dataPoint = resourceMetrics.scopeMetrics
+        .flatMap((sm) => sm.metrics)
+        .find((m) => m.descriptor.name === 'http.server.request.count')!.dataPoints[0];
+
+      expect(dataPoint.attributes['http.request.method']).toBe('GET');
+      expect(dataPoint.attributes['http.response.status_code']).toBe(200);
+      expect(dataPoint.attributes['http.route']).toBe('/api/users/:id');
+      expect(dataPoint.attributes['url.path']).toBeUndefined();
+      expect(dataPoint.attributes['user.id']).toBeUndefined();
+
+      await p.shutdown();
+      trace.disable();
+      metrics.disable();
+    });
+
+    it('should collapse multiple high-cardinality requests into bounded time series', async () => {
+      const metricExporter = new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE);
+      const reader = new PeriodicExportingMetricReader({
+        exporter: metricExporter,
+        exportIntervalMillis: 100,
+      });
+      const traceExporter = new InMemorySpanExporter();
+
+      @Otel({ serviceName: 'view-cardinality-test', traceExporter, metricReader: reader })
+      class ViewCardinalityOtel extends OtelTracingPostProcessor {}
+
+      const p = new ViewCardinalityOtel();
+
+      p.onInit();
+
+      const counter = metrics.getMeter('test').createCounter('http.server.request.count');
+
+      for (let i = 0; i < 50; i++) {
+        counter.add(1, {
+          'http.request.method': 'GET',
+          'http.response.status_code': 404,
+          'http.route': 'unmatched',
+          'url.path': `/random-${i}`,
+        });
+      }
+
+      const { resourceMetrics } = await reader.collect();
+      const counterMetric = resourceMetrics.scopeMetrics
+        .flatMap((sm) => sm.metrics)
+        .find((m) => m.descriptor.name === 'http.server.request.count');
+
+      expect(counterMetric!.dataPoints.length).toBe(1);
+      expect(counterMetric!.dataPoints[0].value).toBe(50);
+
+      await p.shutdown();
+      trace.disable();
+      metrics.disable();
     });
   });
 

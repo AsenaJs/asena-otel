@@ -90,11 +90,9 @@ export class OtelTracingMiddleware extends AsenaMiddlewareService {
           span.setAttribute(ATTR_HTTP_ROUTE, routePattern);
         }
 
-        const metricRoute = routePattern || url;
-
         const attributes: Record<string, string | number> = {
           [ATTR_HTTP_REQUEST_METHOD]: method,
-          [ATTR_URL_PATH]: metricRoute,
+          [ATTR_HTTP_ROUTE]: routePattern ?? 'unmatched',
         };
 
         const statusCode = (ctx.res as any)?.status as number | undefined;
