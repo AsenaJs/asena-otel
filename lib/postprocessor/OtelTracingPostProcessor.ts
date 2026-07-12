@@ -4,7 +4,7 @@ import { W3CTraceContextPropagator } from '@opentelemetry/core';
 import { resourceFromAttributes, type Resource } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { BasicTracerProvider, BatchSpanProcessor, type Sampler, type SpanExporter } from '@opentelemetry/sdk-trace-base';
-import { MeterProvider, type MetricReader } from '@opentelemetry/sdk-metrics';
+import { createAllowListAttributesProcessor, MeterProvider, type MetricReader } from '@opentelemetry/sdk-metrics';
 import { getMetadata } from 'reflect-metadata/no-conflict';
 import { PostConstruct } from '@asenajs/asena/decorators/ioc';
 import { getOwnTypedMetadata } from '@asenajs/asena/utils';
@@ -166,7 +166,22 @@ export class OtelTracingPostProcessor implements ComponentPostProcessor {
   }
 
   private setupMetrics(resource: Resource, reader: MetricReader): void {
-    this.meterProvider = new MeterProvider({ resource, readers: [reader] });
+    this.meterProvider = new MeterProvider({
+      resource,
+      readers: [reader],
+      views: [
+        {
+          instrumentName: 'http.server.*',
+          attributesProcessors: [
+            createAllowListAttributesProcessor([
+              'http.request.method',
+              'http.response.status_code',
+              'http.route',
+            ]),
+          ],
+        },
+      ],
+    });
     metrics.setGlobalMeterProvider(this.meterProvider);
   }
 

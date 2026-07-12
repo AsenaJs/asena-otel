@@ -101,7 +101,8 @@ describe('OtelTracingMiddleware', () => {
 
       expect(dp.value).toBe(1);
       expect(dp.attributes[ATTR_HTTP_REQUEST_METHOD]).toBe('GET');
-      expect(dp.attributes[ATTR_URL_PATH]).toBe('/api/data');
+      expect(dp.attributes[ATTR_HTTP_ROUTE]).toBe('unmatched');
+      expect(dp.attributes[ATTR_URL_PATH]).toBeUndefined();
     });
 
     it('should record request duration histogram', async () => {
@@ -247,7 +248,29 @@ describe('OtelTracingMiddleware', () => {
         .flatMap((sm) => sm.metrics)
         .find((m) => m.descriptor.name === 'http.server.request.count');
 
-      expect(counter!.dataPoints[0].attributes[ATTR_URL_PATH]).toBe('/api/users/:id');
+      expect(counter!.dataPoints[0].attributes[ATTR_HTTP_ROUTE]).toBe('/api/users/:id');
+      expect(counter!.dataPoints[0].attributes[ATTR_URL_PATH]).toBeUndefined();
+    });
+
+    it('should collapse multiple unmatched paths into a single time series', async () => {
+      const next = mock(() => Promise.resolve());
+
+      const ctx1 = createMockAsenaContext({ method: 'GET', url: 'http://localhost/random-1' });
+      const ctx2 = createMockAsenaContext({ method: 'GET', url: 'http://localhost/random-2' });
+      const ctx3 = createMockAsenaContext({ method: 'GET', url: 'http://localhost/.env' });
+
+      await middleware.handle(ctx1, next);
+      await middleware.handle(ctx2, next);
+      await middleware.handle(ctx3, next);
+
+      const { resourceMetrics } = await sdk.metricReader!.collect();
+      const counter = resourceMetrics.scopeMetrics
+        .flatMap((sm) => sm.metrics)
+        .find((m) => m.descriptor.name === 'http.server.request.count');
+
+      expect(counter!.dataPoints.length).toBe(1);
+      expect(counter!.dataPoints[0].value).toBe(3);
+      expect(counter!.dataPoints[0].attributes[ATTR_HTTP_ROUTE]).toBe('unmatched');
     });
   });
 

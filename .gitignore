@@ -6,6 +6,9 @@ out
 dist
 *.tgz
 
+# test reports
+junit.xml
+
 # code coverage
 coverage
 *.lcov

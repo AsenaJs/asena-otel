@@ -48,14 +48,29 @@ import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 export class AppOtel extends OtelTracingPostProcessor {}
 ```
 
-### Step 2: Register OtelTracingMiddleware in your Config
+### Step 2: Create a Local Middleware Class
 
-Add `OtelTracingMiddleware` to your config's `globalMiddlewares()`. This is required so that all HTTP requests are traced automatically.
+Create a class in your `src` folder that extends `OtelTracingMiddleware` and apply the `@Middleware()` decorator. This registers the middleware in Asena's IoC container.
+
+```typescript
+// src/middlewares/AppOtelMiddleware.ts
+import { Middleware } from '@asenajs/asena/decorators';
+import { OtelTracingMiddleware } from '@asenajs/asena-otel';
+
+@Middleware()
+export class AppOtelMiddleware extends OtelTracingMiddleware {}
+```
+
+> **Important:** Asena's IoC container only scans the `src` folder defined in your `asena.config.ts`. Since `OtelTracingMiddleware` lives in `node_modules`, the container cannot discover it automatically. You **must** create a local class extending it with `@Middleware()` so that Asena can register and use it.
+
+### Step 3: Register the Middleware in your Config
+
+Add `AppOtelMiddleware` to your config's `globalMiddlewares()`. This is required so that all HTTP requests are traced automatically.
 
 ```typescript
 import { Config } from '@asenajs/asena/decorators';
 import { ConfigService, type Context, HttpException } from '@asenajs/ergenecore';
-import { OtelTracingMiddleware } from '@asenajs/asena-otel';
+import { AppOtelMiddleware } from '../middlewares/AppOtelMiddleware';
 import { AppCorsMiddleware } from '../middlewares/AppCorsMiddleware';
 
 @Config()
@@ -63,7 +78,7 @@ export class AppConfig extends ConfigService {
 
   public globalMiddlewares() {
     return [
-      OtelTracingMiddleware,  // traces all HTTP requests automatically
+      AppOtelMiddleware,  // traces all HTTP requests automatically
       AppCorsMiddleware,
     ];
   }
@@ -78,7 +93,7 @@ export class AppConfig extends ConfigService {
 }
 ```
 
-That's it. Asena's IoC container automatically discovers `AppOtel`, `OtelService`, and `OtelTracingMiddleware`. All HTTP requests are traced, service methods are auto-traced, and metrics are collected — without changing any business logic.
+That's it. Asena's IoC container automatically discovers `AppOtel` and `OtelService`. All HTTP requests are traced, service methods are auto-traced, and metrics are collected — without changing any business logic.
 
 ## Components
 
@@ -147,9 +162,12 @@ private meter: Meter;
 
 **Creates for each request:**
 - A `SERVER` span named `"{METHOD} {PATH}"` (e.g., `GET /api/users`)
-- Attributes: `http.request.method`, `url.path`, `http.route` (after route matching), `http.response.status_code`
+- **Span attributes** (high-cardinality safe): `http.request.method`, `url.path`, `http.route` (after route matching), `http.response.status_code`
+- **Metric attributes** (low-cardinality only): `http.request.method`, `http.route` (or `'unmatched'` for unmatched routes), `http.response.status_code`
 - Metrics: `http.server.request.count` (Counter), `http.server.request.duration` (Histogram)
 - Extracts W3C `traceparent` header from incoming requests for distributed tracing
+
+> **Note on cardinality:** `url.path` is intentionally excluded from metric attributes — raw paths from scanner/bot traffic would otherwise create unbounded metric series. A `View` with `createAllowListAttributesProcessor` is also configured on `http.server.*` instruments as defense-in-depth.
 
 ### OtelTracingPostProcessor
 
