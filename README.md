@@ -10,6 +10,11 @@ GET /api/users (SERVER)
        └─ UserService.getAll (INTERNAL)
 ```
 
+## Requirements
+
+- [Bun](https://bun.sh) v1.3.12 or higher
+- [@asenajs/asena](https://github.com/AsenaJs/Asena) v0.8.0 or higher
+
 ## Installation
 
 ```bash
