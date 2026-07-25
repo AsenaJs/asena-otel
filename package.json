@@ -1,6 +1,6 @@
 {
   "name": "@asenajs/asena-otel",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "author": "LibirSoft",
   "description": "OpenTelemetry integration for AsenaJS - auto-tracing, HTTP metrics, distributed tracing",
   "main": "dist/index.js",
