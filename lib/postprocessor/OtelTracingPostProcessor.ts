@@ -3,9 +3,13 @@ import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-ho
 import { W3CTraceContextPropagator } from '@opentelemetry/core';
 import { resourceFromAttributes, type Resource } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import { BasicTracerProvider, BatchSpanProcessor, type Sampler, type SpanExporter } from '@opentelemetry/sdk-trace-base';
+import {
+  BasicTracerProvider,
+  BatchSpanProcessor,
+  type Sampler,
+  type SpanExporter,
+} from '@opentelemetry/sdk-trace-base';
 import { createAllowListAttributesProcessor, MeterProvider, type MetricReader } from '@opentelemetry/sdk-metrics';
-import { getMetadata } from 'reflect-metadata/no-conflict';
 import { PostConstruct } from '@asenajs/asena/decorators/ioc';
 import { getOwnTypedMetadata } from '@asenajs/asena/utils';
 import { OtelConstants } from '../constants/OtelConstants';
@@ -18,7 +22,6 @@ const COMPONENT_TYPE_CONTROLLER = 'CONTROLLER';
 const LIBRARY_NAME = '@asenajs/asena-otel';
 
 export class OtelTracingPostProcessor implements ComponentPostProcessor {
-
   protected tracerProvider: BasicTracerProvider | null = null;
 
   protected meterProvider: MeterProvider | null = null;
@@ -66,8 +69,11 @@ export class OtelTracingPostProcessor implements ComponentPostProcessor {
     const tracer = this.tracer;
 
     return new Proxy(instance as object, {
-      get(target, prop, receiver) {
-        const value = Reflect.get(target, prop, receiver);
+      get(target, prop) {
+        // Receiver is the raw instance, not the proxy. Reflect.get *invokes* an accessor, so
+        // passing the proxy ran every getter with `this === proxy` - and a getter that reads a
+        // `#private` field then throws, before the typeof guard below can skip it.
+        const value = Reflect.get(target, prop, target);
 
         if (typeof value !== 'function') return value;
 
@@ -173,11 +179,7 @@ export class OtelTracingPostProcessor implements ComponentPostProcessor {
         {
           instrumentName: 'http.server.*',
           attributesProcessors: [
-            createAllowListAttributesProcessor([
-              'http.request.method',
-              'http.response.status_code',
-              'http.route',
-            ]),
+            createAllowListAttributesProcessor(['http.request.method', 'http.response.status_code', 'http.route']),
           ],
         },
       ],
@@ -194,12 +196,16 @@ export class OtelTracingPostProcessor implements ComponentPostProcessor {
     process.on('SIGINT', shutdown);
   }
 
+  /**
+   * Own-only, matching the container. A class is whatever its own decorator says it is -
+   * walking the chain meant a @Controller extending a @Service base answered SERVICE first,
+   * so it was traced under the wrong autoTrace policy and given the wrong span name.
+   */
   private getComponentType(Class: any): string | null {
-    if (getMetadata(COMPONENT_TYPE_SERVICE, Class)) return COMPONENT_TYPE_SERVICE;
+    if (getOwnTypedMetadata(COMPONENT_TYPE_SERVICE, Class)) return COMPONENT_TYPE_SERVICE;
 
-    if (getMetadata(COMPONENT_TYPE_CONTROLLER, Class)) return COMPONENT_TYPE_CONTROLLER;
+    if (getOwnTypedMetadata(COMPONENT_TYPE_CONTROLLER, Class)) return COMPONENT_TYPE_CONTROLLER;
 
     return null;
   }
-
 }

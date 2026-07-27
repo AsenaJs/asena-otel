@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { metrics, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
 import { defineMetadata } from 'reflect-metadata/no-conflict';
-import { AlwaysOffSampler, AlwaysOnSampler, InMemorySpanExporter } from '@opentelemetry/sdk-trace-base';
+import { AlwaysOffSampler, InMemorySpanExporter } from '@opentelemetry/sdk-trace-base';
 import {
   AggregationTemporality,
   InMemoryMetricExporter,
@@ -10,7 +10,7 @@ import {
 import { OtelTracingPostProcessor } from '../lib/postprocessor/OtelTracingPostProcessor';
 import { Otel } from '../lib/decorators/Otel';
 import { ratioBasedSampler } from '../lib/samplers';
-import { cleanupOtel, createTestOtelSdk, type TestOtelSdk } from './utils/otelTestUtils';
+import { cleanupOtel } from './utils/otelTestUtils';
 import type { AutoTraceConfig } from '../lib/OtelConfig';
 import type { Sampler } from '@opentelemetry/sdk-trace-base';
 
@@ -348,6 +348,7 @@ describe('OtelTracingPostProcessor', () => {
     it('should not wrap non-function properties', () => {
       class MyService {
         name = 'test-service';
+
         count = 42;
       }
 

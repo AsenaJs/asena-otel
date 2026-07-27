@@ -1,11 +1,4 @@
-import {
-  context as otelContext,
-  propagation,
-  SpanKind,
-  SpanStatusCode,
-  trace,
-  type Tracer,
-} from '@opentelemetry/api';
+import { context as otelContext, propagation, SpanKind, SpanStatusCode, trace, type Tracer } from '@opentelemetry/api';
 import type { MessageContext, MessagingInterceptor, OutboundContext } from '@asenajs/asena/microservice';
 
 const LIBRARY_NAME = '@asenajs/asena-otel';
