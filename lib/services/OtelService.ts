@@ -6,7 +6,6 @@ const LIBRARY_NAME = '@asenajs/asena-otel';
 
 @Service('OtelService')
 export class OtelService {
-
   private _tracer!: Tracer;
 
   private _meter!: Meter;
@@ -53,5 +52,4 @@ export class OtelService {
 
     return headers;
   }
-
 }

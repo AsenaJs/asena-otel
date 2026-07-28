@@ -24,7 +24,6 @@ const LIBRARY_NAME = '@asenajs/asena-otel';
 
 @Middleware()
 export class OtelTracingMiddleware extends AsenaMiddlewareService {
-
   private tracer!: Tracer;
 
   private meter!: Meter;
@@ -109,5 +108,4 @@ export class OtelTracingMiddleware extends AsenaMiddlewareService {
       }
     });
   }
-
 }

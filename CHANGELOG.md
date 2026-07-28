@@ -1,5 +1,25 @@
 # @asenajs/asena-otel
 
+## 1.2.0
+
+### Minor Changes
+
+- Auto-trace picks the right component type, and no longer breaks on `#private` accessors
+
+  **Component type is read own-only.** It was read off the prototype chain, and SERVICE is checked
+  first, so a `@Controller` extending a `@Service` base resolved as a SERVICE — traced under the
+  wrong `autoTrace` policy and given the wrong span name. A `@Controller` is now a controller
+  whatever it extends, matching the container.
+
+  **The tracing proxy no longer invokes accessors with itself as receiver.** `Reflect.get` was
+  called with the proxy as `receiver`, and `Reflect.get` _invokes_ an accessor — so any getter
+  reading a `#private` field threw `Cannot read private member … from an object whose class did
+not declare it`, before the `typeof value !== 'function'` guard could skip it. It only surfaced
+  with `autoTrace` enabled and real `#private` fields, which is why no fixture caught it.
+
+  `OtelConstants.OptionsKey` is now a registered symbol (`Symbol.for`), so it survives a project
+  resolving two copies of this package.
+
 ## 1.1.0
 
 ### Minor Changes
