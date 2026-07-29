@@ -1,6 +1,6 @@
 # @asenajs/asena-otel
 
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/AsenaJs/asena-otel)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/AsenaJs/asena-otel)
 [![Bun Version](https://img.shields.io/badge/Bun-1.3.12%2B-blueviolet)](https://bun.sh)
 
 OpenTelemetry integration for AsenaJS — automatic HTTP tracing, method-level auto-tracing, metrics, and distributed tracing support.
