@@ -16,7 +16,7 @@ GET /api/users (SERVER)
 ## Requirements
 
 - [Bun](https://bun.sh) v1.3.12 or higher
-- [@asenajs/asena](https://github.com/AsenaJs/Asena) v0.9.0 or higher
+- [@asenajs/asena](https://github.com/AsenaJs/Asena) v0.10.0 or higher
 
 ## Installation
 
@@ -120,7 +120,7 @@ import { Otel, OtelTracingPostProcessor } from '@asenajs/asena-otel';
 export class AppOtel extends OtelTracingPostProcessor {}
 ```
 
-The decorator stores the options as metadata and applies `@PostProcessor()` automatically. During bootstrap, `@PostConstruct()` in `OtelTracingPostProcessor` reads the metadata and initializes the OpenTelemetry SDK — tracer provider, meter provider, context manager, and shutdown hooks.
+The decorator stores the options as metadata and applies `@PostProcessor()` automatically. During bootstrap, `@OnStart()` in `OtelTracingPostProcessor` reads the metadata and initializes the OpenTelemetry SDK — tracer provider, meter provider and context manager. The matching `@OnStop()` hook runs from `server.stop()`: it flushes the buffered spans and metrics, stops the exporter timers and unhooks the context manager. A step that fails is logged and the remaining ones still run, so an unreachable collector cannot fail your shutdown.
 
 ### OtelService
 
