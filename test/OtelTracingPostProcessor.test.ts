@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { metrics, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
+import { context, createContextKey, metrics, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
 import { defineMetadata } from 'reflect-metadata/no-conflict';
 import { AlwaysOffSampler, InMemorySpanExporter } from '@opentelemetry/sdk-trace-base';
 import {
@@ -7,12 +7,15 @@ import {
   InMemoryMetricExporter,
   PeriodicExportingMetricReader,
 } from '@opentelemetry/sdk-metrics';
+import { ComponentConstants } from '@asenajs/asena/ioc/constants';
+import { getOwnTypedMetadata } from '@asenajs/asena/utils';
 import { OtelTracingPostProcessor } from '../lib/postprocessor/OtelTracingPostProcessor';
 import { Otel } from '../lib/decorators/Otel';
 import { ratioBasedSampler } from '../lib/samplers';
 import { cleanupOtel } from './utils/otelTestUtils';
 import type { AutoTraceConfig } from '../lib/OtelConfig';
-import type { Sampler } from '@opentelemetry/sdk-trace-base';
+import type { BasicTracerProvider, Sampler } from '@opentelemetry/sdk-trace-base';
+import type { MeterProvider } from '@opentelemetry/sdk-metrics';
 
 function createProcessor(
   autoTrace: AutoTraceConfig,
@@ -33,6 +36,44 @@ function createProcessor(
   processor.onInit();
 
   return { processor, exporter };
+}
+
+/**
+ * A fully initialised processor with both providers live, plus direct handles on them so a test
+ * can make one of the teardown steps fail. The capturing logger stands in for the one the
+ * container injects, which also keeps the expected failures out of the suite's output.
+ */
+function createShutdownProcessor(serviceName: string): {
+  processor: OtelTracingPostProcessor;
+  tracerProvider: BasicTracerProvider;
+  meterProvider: MeterProvider;
+  loggedErrors: string[];
+} {
+  // The OTel global registry refuses to overwrite a manager that is already installed, so drop
+  // the previous test's one first - otherwise onInit() silently keeps whatever was there.
+  context.disable();
+
+  const reader = new PeriodicExportingMetricReader({
+    exporter: new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE),
+    exportIntervalMillis: 100,
+  });
+
+  @Otel({ serviceName, traceExporter: new InMemorySpanExporter(), metricReader: reader })
+  class ShutdownOtel extends OtelTracingPostProcessor {}
+
+  const processor = new ShutdownOtel();
+  const loggedErrors: string[] = [];
+
+  processor.onInit();
+
+  (processor as any)['serverLogger'] = { error: (message: string) => loggedErrors.push(message) };
+
+  return {
+    processor,
+    tracerProvider: (processor as any)['tracerProvider'],
+    meterProvider: (processor as any)['meterProvider'],
+    loggedErrors,
+  };
 }
 
 describe('OtelTracingPostProcessor', () => {
@@ -846,6 +887,146 @@ describe('OtelTracingPostProcessor', () => {
       expect((p as any)['meterProvider']).toBeNull();
 
       trace.disable();
+    });
+
+    it('should be safe to call twice', async () => {
+      const { processor: p } = createShutdownProcessor('shutdown-twice');
+
+      await p.shutdown();
+      await expect(p.shutdown()).resolves.toBeUndefined();
+
+      trace.disable();
+      metrics.disable();
+    });
+
+    it('should shut the meter provider down even when the tracer provider fails', async () => {
+      const { processor: p, tracerProvider, meterProvider } = createShutdownProcessor('tracer-fails');
+      const realTracerShutdown = tracerProvider.shutdown.bind(tracerProvider);
+
+      let meterShutdownCalled = false;
+
+      tracerProvider.shutdown = () => Promise.reject(new Error('collector unreachable'));
+
+      const realMeterShutdown = meterProvider.shutdown.bind(meterProvider);
+
+      meterProvider.shutdown = async () => {
+        meterShutdownCalled = true;
+
+        await realMeterShutdown();
+      };
+
+      await p.shutdown();
+
+      expect(meterShutdownCalled).toBe(true);
+
+      // The stub replaced the only handle that stops the BatchSpanProcessor timer, so release it
+      // by hand - otherwise this test leaks an exporter interval into every test after it.
+      await realTracerShutdown();
+      trace.disable();
+      metrics.disable();
+    });
+
+    it('should not throw out of the hook when the tracer provider fails', async () => {
+      const { processor: p, tracerProvider } = createShutdownProcessor('tracer-fails-quietly');
+      const realTracerShutdown = tracerProvider.shutdown.bind(tracerProvider);
+
+      tracerProvider.shutdown = () => Promise.reject(new Error('collector unreachable'));
+
+      await expect(p.shutdown()).resolves.toBeUndefined();
+
+      await realTracerShutdown();
+      trace.disable();
+      metrics.disable();
+    });
+
+    it('should disable the context manager even when the tracer provider fails', async () => {
+      const { processor: p, tracerProvider } = createShutdownProcessor('context-still-disabled');
+      const realTracerShutdown = tracerProvider.shutdown.bind(tracerProvider);
+      const key = createContextKey('probe');
+
+      // The AsyncLocalStorage manager onInit installed carries the value into the callback; the
+      // no-op manager left behind by context.disable() hands back ROOT_CONTEXT instead.
+      expect(context.with(context.active().setValue(key, 'set'), () => context.active().getValue(key))).toBe('set');
+
+      tracerProvider.shutdown = () => Promise.reject(new Error('collector unreachable'));
+
+      await p.shutdown();
+
+      expect(context.with(context.active().setValue(key, 'set'), () => context.active().getValue(key))).toBeUndefined();
+
+      await realTracerShutdown();
+      trace.disable();
+      metrics.disable();
+    });
+
+    it('should report a failing step through the injected server logger', async () => {
+      const { processor: p, tracerProvider, loggedErrors } = createShutdownProcessor('logged-failure');
+      const realTracerShutdown = tracerProvider.shutdown.bind(tracerProvider);
+
+      tracerProvider.shutdown = () => Promise.reject(new Error('collector unreachable'));
+
+      await p.shutdown();
+
+      expect(loggedErrors.length).toBe(1);
+      expect(loggedErrors[0]).toContain('tracer provider');
+      expect(loggedErrors[0]).toContain('collector unreachable');
+
+      await realTracerShutdown();
+      trace.disable();
+      metrics.disable();
+    });
+
+    it('should fall back to the console when no server logger was injected', async () => {
+      const { processor: p, tracerProvider } = createShutdownProcessor('no-logger-injected');
+      const realTracerShutdown = tracerProvider.shutdown.bind(tracerProvider);
+      const consoleError = spyOn(console, 'error').mockImplementation(() => {});
+
+      // A processor built by hand has no injected logger - the path a unit test or a script takes.
+      (p as any)['serverLogger'] = undefined;
+      tracerProvider.shutdown = () => Promise.reject(new Error('collector unreachable'));
+
+      await p.shutdown();
+
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      expect(String(consoleError.mock.calls[0][0])).toContain('collector unreachable');
+
+      consoleError.mockRestore();
+
+      await realTracerShutdown();
+      trace.disable();
+      metrics.disable();
+    });
+  });
+
+  describe('lifecycle wiring', () => {
+    it('should register shutdown as an @OnStop hook', () => {
+      const hooks = getOwnTypedMetadata<string[]>(ComponentConstants.OnStopKey, OtelTracingPostProcessor);
+
+      expect(hooks).toContain('shutdown');
+    });
+
+    it('should register onInit as an @OnStart hook', () => {
+      const hooks = getOwnTypedMetadata<string[]>(ComponentConstants.PostConstructKey, OtelTracingPostProcessor);
+
+      expect(hooks).toContain('onInit');
+    });
+
+    it('should not attach process signal listeners on init', () => {
+      const before = process.listenerCount('SIGTERM') + process.listenerCount('SIGINT');
+      const testExporter = new InMemorySpanExporter();
+
+      @Otel({ serviceName: 'no-signal-listeners', traceExporter: testExporter })
+      class NoSignalOtel extends OtelTracingPostProcessor {}
+
+      const p = new NoSignalOtel();
+
+      p.onInit();
+
+      expect(process.listenerCount('SIGTERM') + process.listenerCount('SIGINT')).toBe(before);
+
+      return p.shutdown().then(() => {
+        trace.disable();
+      });
     });
   });
 });

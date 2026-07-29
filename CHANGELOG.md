@@ -1,5 +1,30 @@
 # @asenajs/asena-otel
 
+## 2.0.0
+
+### Major Changes
+
+- Shutdown runs from the lifecycle instead of a signal handler, and the core peer moves to `^0.10.0`
+
+  `OtelTracingPostProcessor` registered its own `process.on('SIGTERM'|'SIGINT')` — the only signal
+  handling in the framework, and there only because nothing else offered a shutdown hook. It had
+  three problems: the handler was an `async` function handed straight to `process.on`, so a final
+  flush against an unreachable collector rejected unheld and killed the process with exit 1; the
+  listeners were never removed, so repeated boots in one process accumulated them; and
+  `server.stop()` on its own flushed nothing, leaving the `BatchSpanProcessor` timer and any
+  `PeriodicExportingMetricReader` interval running.
+
+  `@OnStop` now drives `shutdown()`, and `shutdown()` runs its steps under `Promise.allSettled`,
+  logging failures instead of raising them. A telemetry flush that cannot reach its collector can no
+  longer take the application down.
+
+  **Breaking:**
+
+  - Requires `@asenajs/asena@^0.10.0`. A 0.9.x application cannot use this version.
+  - The package no longer installs signal handlers. An application that relied on Ctrl+C flushing
+    telemetry without calling `server.stop()` must call it — which the framework now does for you by
+    default.
+
 ## 1.2.0
 
 ### Minor Changes

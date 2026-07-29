@@ -9,7 +9,7 @@ import type { AsenaOtelOptions } from '../OtelConfig';
  * Apply to a class extending `OtelTracingPostProcessor` to automatically:
  * 1. Initialize the OpenTelemetry SDK (tracer + meter providers)
  * 2. Auto-trace Service and Controller methods via Proxy
- * 3. Register shutdown hooks for graceful cleanup
+ * 3. Flush and release the SDK from `server.stop()`, via an `@OnStop` hook
  *
  * @example
  * ```typescript

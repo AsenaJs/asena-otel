@@ -16,7 +16,7 @@ import {
 } from '@opentelemetry/semantic-conventions';
 import { AsenaMiddlewareService } from '@asenajs/asena/middleware';
 import { Middleware } from '@asenajs/asena/decorators';
-import { PostConstruct } from '@asenajs/asena/decorators/ioc';
+import { OnStart } from '@asenajs/asena/decorators/ioc';
 import type { AsenaContext } from '@asenajs/asena/adapter';
 import { isRouteIgnored } from '../shared/OtelRuntimeConfig';
 
@@ -32,7 +32,7 @@ export class OtelTracingMiddleware extends AsenaMiddlewareService {
 
   private requestDuration!: Histogram;
 
-  @PostConstruct()
+  @OnStart()
   public onInit() {
     this.tracer = trace.getTracer(LIBRARY_NAME);
     this.meter = metrics.getMeter(LIBRARY_NAME);

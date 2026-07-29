@@ -1,6 +1,6 @@
 import { trace, metrics, context, propagation, type Tracer, type Meter, type Span } from '@opentelemetry/api';
 import { Service } from '@asenajs/asena/decorators';
-import { PostConstruct } from '@asenajs/asena/decorators/ioc';
+import { OnStart } from '@asenajs/asena/decorators/ioc';
 
 const LIBRARY_NAME = '@asenajs/asena-otel';
 
@@ -10,7 +10,7 @@ export class OtelService {
 
   private _meter!: Meter;
 
-  @PostConstruct()
+  @OnStart()
   public onInit() {
     this._tracer = trace.getTracer(LIBRARY_NAME);
     this._meter = metrics.getMeter(LIBRARY_NAME);
