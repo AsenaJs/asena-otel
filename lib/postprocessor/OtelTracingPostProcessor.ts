@@ -196,8 +196,8 @@ export class OtelTracingPostProcessor implements ComponentPostProcessor {
       this.constructor,
     );
 
-    this.optionsRead = true;
     this.options = typeof metadata === 'function' ? metadata() : metadata;
+    this.optionsRead = true;
 
     return this.options;
   }

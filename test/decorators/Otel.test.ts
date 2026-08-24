@@ -90,7 +90,24 @@ describe('@Otel Decorator', () => {
     expect(calls).toBe(0);
   });
 
-  test('should resolve a thunk exactly once across onInit and postProcess', async () => {
+  test('should not cache a thunk that throws, so a later onInit runs it again', () => {
+    let calls = 0;
+
+    @Otel(() => {
+      calls++;
+
+      throw new Error('boom');
+    })
+    class BrokenOtel extends OtelTracingPostProcessor {}
+
+    const processor = new BrokenOtel();
+
+    expect(() => processor.onInit()).toThrow('boom');
+    expect(() => processor.onInit()).toThrow('boom');
+    expect(calls).toBe(2);
+  });
+
+  test('should resolve a thunk exactly once during onInit', async () => {
     let calls = 0;
 
     // The OTel global registry refuses to overwrite an installed manager, so drop any previous
