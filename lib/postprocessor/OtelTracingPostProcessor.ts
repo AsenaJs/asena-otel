@@ -38,6 +38,10 @@ export class OtelTracingPostProcessor implements ComponentPostProcessor {
 
   private autoTraceConfig: AutoTraceConfig = {};
 
+  private optionsRead = false;
+
+  private options: AsenaOtelOptions | undefined;
+
   /**
    * Build the SDK and publish it globally.
    *
@@ -185,7 +189,17 @@ export class OtelTracingPostProcessor implements ComponentPostProcessor {
   }
 
   private getOptions(): AsenaOtelOptions | undefined {
-    return getOwnTypedMetadata<AsenaOtelOptions>(OtelConstants.OptionsKey, this.constructor);
+    if (this.optionsRead) return this.options;
+
+    const metadata = getOwnTypedMetadata<AsenaOtelOptions | (() => AsenaOtelOptions)>(
+      OtelConstants.OptionsKey,
+      this.constructor,
+    );
+
+    this.optionsRead = true;
+    this.options = typeof metadata === 'function' ? metadata() : metadata;
+
+    return this.options;
   }
 
   private setupContextManager(): void {
