@@ -101,7 +101,7 @@ export class AppConfig extends ConfigService {
 }
 ```
 
-That's it. Asena's IoC container automatically discovers `AppOtel` and `OtelService`. All HTTP requests are traced, service methods are auto-traced, and metrics are collected — without changing any business logic.
+That's it. The scan picks up `AppOtel` and `AppOtelMiddleware`. `OtelService` ships inside the package, where the scan never looks — if you inject it, hand it in with `imports: [OtelService]` on `AsenaServerFactory.create` (see [asena.sh/docs/packages/opentelemetry](https://asena.sh/docs/packages/opentelemetry)). All HTTP requests are traced, service methods are auto-traced, and metrics are collected — without changing any business logic.
 
 ## Components
 
@@ -124,7 +124,7 @@ The decorator stores the options as metadata and applies `@PostProcessor()` auto
 
 ### OtelService
 
-Injectable `@Service` that provides access to OpenTelemetry tracer and meter. Use it for custom spans and distributed tracing. Asena automatically discovers and registers it.
+Injectable `@Service` that provides access to OpenTelemetry tracer and meter. Use it for custom spans and distributed tracing. It lives in `node_modules`, so register it through `imports` before injecting it.
 
 ```typescript
 import { Inject } from '@asenajs/asena/decorators/ioc';
