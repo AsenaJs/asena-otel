@@ -1,5 +1,15 @@
 # @asenajs/asena-otel
 
+## 3.0.0
+
+### Major Changes
+
+- 1e039ad: Requires `@asenajs/asena` `^0.11.0` as the peer dependency and Bun 1.4. Core 0.10.x is outside the peer range.
+
+### Minor Changes
+
+- 80d912b: `@Otel` now also accepts a thunk returning the options: `@Otel(() => ({ serviceName: process.env.SERVICE_NAME!, ... }))`. The thunk runs when the post-processor initialises (`onInit`), not at decoration time, so per-service values can be read from the environment and the decorated `AppOtel` class can live in a shared package. It is called once per post-processor instance and the result is cached. The plain options-object form is unchanged.
+
 ## 2.0.0
 
 ### Major Changes
