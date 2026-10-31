@@ -1,5 +1,11 @@
 # @asenajs/asena-otel
 
+## 3.0.1
+
+### Patch Changes
+
+- a0dc8d9: `@asenajs/asena` 0.12.x is now an accepted peer. No behaviour change.
+
 ## 3.0.0
 
 ### Major Changes
