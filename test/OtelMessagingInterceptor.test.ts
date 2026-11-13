@@ -1,10 +1,21 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { propagation, SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import { W3CTraceContextPropagator } from '@opentelemetry/core';
+import type { ReadableSpan } from '@opentelemetry/sdk-trace-base';
 import { InMemoryTransport, composeOnReceive, composeOnSend } from '@asenajs/asena/microservice';
 import type { MessageContext, OutboundContext } from '@asenajs/asena/microservice';
 import { otelMessaging } from '../lib/messaging/OtelMessagingInterceptor';
 import { cleanupOtel, createTestOtelSdk, type TestOtelSdk } from './utils/otelTestUtils';
+
+function requireSpan(spans: ReadableSpan[], kind: SpanKind): ReadableSpan {
+  const span = spans.find((candidate) => candidate.kind === kind);
+
+  if (!span) {
+    throw new Error(`no finished span of kind ${kind}`);
+  }
+
+  return span;
+}
 
 describe('otelMessaging interceptor', () => {
   let sdk: TestOtelSdk;
@@ -53,8 +64,8 @@ describe('otelMessaging interceptor', () => {
 
     expect(spans).toHaveLength(2);
 
-    const consumer = spans.find((span) => span.kind === SpanKind.CONSUMER);
-    const producer = spans.find((span) => span.kind === SpanKind.PRODUCER);
+    const consumer = requireSpan(spans, SpanKind.CONSUMER);
+    const producer = requireSpan(spans, SpanKind.PRODUCER);
 
     expect(producer).toBeDefined();
     expect(consumer).toBeDefined();
@@ -68,8 +79,8 @@ describe('otelMessaging interceptor', () => {
     await roundTrip();
 
     const spans = sdk.spanExporter.getFinishedSpans();
-    const producer = spans.find((span) => span.kind === SpanKind.PRODUCER);
-    const consumer = spans.find((span) => span.kind === SpanKind.CONSUMER);
+    const producer = requireSpan(spans, SpanKind.PRODUCER);
+    const consumer = requireSpan(spans, SpanKind.CONSUMER);
 
     expect(producer.name).toBe('send order.create');
     expect(producer.attributes['messaging.system']).toBe('in-memory');
@@ -92,8 +103,8 @@ describe('otelMessaging interceptor', () => {
     }
 
     const spans = sdk.spanExporter.getFinishedSpans();
-    const producer = spans.find((span) => span.kind === SpanKind.PRODUCER);
-    const consumer = spans.find((span) => span.kind === SpanKind.CONSUMER);
+    const producer = requireSpan(spans, SpanKind.PRODUCER);
+    const consumer = requireSpan(spans, SpanKind.CONSUMER);
 
     expect(consumer.status.code).toBe(SpanStatusCode.ERROR);
     expect(producer.status.code).toBe(SpanStatusCode.ERROR);
@@ -114,7 +125,7 @@ describe('otelMessaging interceptor', () => {
     await composeOnSend([interceptor], ctx, () => transport.emit('order.created', {}, { headers: ctx.headers }));
 
     const spans = sdk.spanExporter.getFinishedSpans();
-    const producer = spans.find((span) => span.kind === SpanKind.PRODUCER);
+    const producer = requireSpan(spans, SpanKind.PRODUCER);
 
     expect(producer.name).toBe('publish order.created');
     expect(producer.attributes['messaging.operation.type']).toBe('publish');
