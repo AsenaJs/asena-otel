@@ -47,7 +47,7 @@ module.exports = {
     '@typescript-eslint/member-ordering': 'warn',
     '@typescript-eslint/class-literal-property-style': 'warn',
     '@typescript-eslint/prefer-for-of': 'warn',
-    // Formatting is prettier's job - `extends: ['prettier']` above exists to hand it over.
+    // Formatting is `bun fmt`'s job - `extends: ['prettier']` above only switches ESLint's style rules off.
     // `padded-blocks` and `lines-between-class-members` used to be re-enabled here, which
     // contradicted that and made `format` and `lint` fight: prettier removed the blank line
     // after a class brace and eslint demanded it back. The reference packages (Asena,
