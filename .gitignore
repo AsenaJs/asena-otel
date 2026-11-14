@@ -37,4 +37,4 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .DS_Store
 
 # Local release tooling - deliberately not committed before 1.0
-scripts/sync-version.ts
+scripts/
