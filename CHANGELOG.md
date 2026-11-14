@@ -1,5 +1,11 @@
 # @asenajs/asena-otel
 
+## 3.0.3
+
+### Patch Changes
+
+- 247e15b: Accept TypeScript 6 and 7 in the `typescript` peer range, and build with TypeScript 7.
+
 ## 3.0.2
 
 ### Patch Changes
