@@ -5,6 +5,7 @@ module.exports = {
     browser: true,
     es2021: true,
   },
+  // `prettier` turns off the ESLint rules that would conflict with `bun fmt`.
   extends: ['alloy', 'alloy/typescript', 'prettier'],
   overrides: [
     {
@@ -47,11 +48,6 @@ module.exports = {
     '@typescript-eslint/member-ordering': 'warn',
     '@typescript-eslint/class-literal-property-style': 'warn',
     '@typescript-eslint/prefer-for-of': 'warn',
-    // Formatting is prettier's job - `extends: ['prettier']` above exists to hand it over.
-    // `padded-blocks` and `lines-between-class-members` used to be re-enabled here, which
-    // contradicted that and made `format` and `lint` fight: prettier removed the blank line
-    // after a class brace and eslint demanded it back. The reference packages (Asena,
-    // ergenecore, hono-adapter) set neither.
     // `void somePromise()` is the deliberate fire-and-forget idiom used across this
     // monorepo for work that must not block the caller and whose failure is handled
     // inside the promise. Flagging it here would only invite `.catch(() => {})`.
